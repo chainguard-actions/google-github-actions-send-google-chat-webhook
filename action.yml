@@ -1,0 +1,86 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'send-google-chat-webhhook'
+description: "send message to your google chat workspace"
+inputs:
+  webhook_url:
+    description: "chat space webhook url"
+    required: true
+  mention:
+    description: "mention people or not, format <users/user_id>"
+    default: '<users/all>'
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - name: 'download binary'
+      shell: 'bash'
+      env:
+        BINARY_NAME: "send-google-chat-webhook"
+        # manully update VERSION after each release
+        # VERSION should not contain v.
+        VERSION: "0.0.2"
+      run: |-
+        case "${RUNNER_OS}" in
+          "Linux")
+            CURL_OS="linux"
+          ;;
+          "macOS")
+            CURL_OS="darwin"
+          ;;
+          "Windows")
+            CURL_OS="windows"
+        esac
+
+        case "${RUNNER_ARCH}" in
+          "X64")
+            CURL_ARCH="amd64"
+          ;;
+          "arm64")
+            CURL_ARCH="arm64"
+          ;;
+        esac
+
+        curl -LOv "https://github.com/google-github-actions/send-google-chat-webhook/releases/download/v${VERSION}/send-google-chat-webhook_${VERSION}_${CURL_OS}_${CURL_ARCH}.tar.gz"
+        tar xzf "${BINARY_NAME}_${VERSION}_${CURL_OS}_${CURL_ARCH}.tar.gz"
+    - name: "send message via cli"
+      shell: 'bash'
+      run: |
+        ./send-google-chat-webhook chat workflownotification --webhook-url="$WEBHOOK_URL"
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook_url }}
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        JOB_CONTEXT: ${{ toJson(job) }}
+        STEPS_CONTEXT: ${{ toJson(steps) }}
+        RUNNER_CONTEXT: ${{ toJson(runner) }}
+        STRATEGY_CONTEXT: ${{ toJson(strategy) }}
+        MATRIX_CONTEXT: ${{ toJson(matrix) }}
