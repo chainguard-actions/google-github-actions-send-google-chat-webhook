@@ -1,0 +1,46 @@
+name: Test basic usage - send google chat webhook
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Start mock webhook server
+        run: |
+          # Start a simple HTTP server that accepts POST requests and returns 200
+          python3 -c "
+          import http.server, threading, json
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_POST(self):
+                  length = int(self.headers.get('Content-Length', 0))
+                  body = self.rfile.read(length)
+                  self.send_response(200)
+                  self.send_header('Content-Type', 'application/json')
+                  self.end_headers()
+                  self.wfile.write(b'{\"name\": \"spaces/test/messages/test\"}')
+              def log_message(self, format, *args):
+                  pass
+
+          server = http.server.HTTPServer(('127.0.0.1', 9999), Handler)
+          server.serve_forever()
+          " &
+          # Wait for server to be ready
+          sleep 1
+          echo "Mock server started on port 9999"
+
+      - id: action
+        uses: .
+        with:
+          webhook_url: "http://127.0.0.1:9999/webhook"
+          mention: "<users/all>"
+        env:
+          GITHUB_REF: refs/heads/main
+          GITHUB_EVENT_NAME: push
+
+      - name: Assert action completed
+        run: |
+          echo "Action completed successfully"
+          echo "PASS"

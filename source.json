@@ -1,6 +1,11 @@
 {
   "owner": "google-github-actions",
   "repo": "send-google-chat-webhook",
-  "version": "",
-  "url": "https://github.com/google-github-actions/send-google-chat-webhook"
+  "version": "v0.0.3",
+  "commit_sha": "12405cb4a46194b65609094cf105dcb8bcc36b26",
+  "url": "https://github.com/google-github-actions/send-google-chat-webhook",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "1",
+  "harden_agent_version": "1"
 }
