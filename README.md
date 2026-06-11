@@ -8,6 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
+| v0.0.2 | [`v0.0.2`](https://github.com/chainguard-actions/google-github-actions-send-google-chat-webhook/tree/v0.0.2) | [`76f0cca`](https://github.com/google-github-actions/send-google-chat-webhook/commit/76f0cca8165d1ed26b001d8d833068509b2cb673) |
 | v0.0.4 | [`v0.0.4`](https://github.com/chainguard-actions/google-github-actions-send-google-chat-webhook/tree/v0.0.4) | [`2173622`](https://github.com/google-github-actions/send-google-chat-webhook/commit/21736222f072d3b7f252ea778ff7098d7aabe85a) |
 
 ## Privacy
