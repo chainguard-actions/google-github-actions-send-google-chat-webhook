@@ -1,0 +1,43 @@
+name: Test binary download succeeds
+on:
+  workflow_dispatch:
+
+jobs:
+  test-binary-download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Verify binary download step works (action will fail at webhook call)
+        id: action
+        uses: .
+        continue-on-error: true
+        with:
+          webhook_url: 'https://chat.googleapis.com/v1/spaces/INVALID/messages?key=FAKE&token=FAKE'
+        env:
+          GITHUB_CONTEXT: '{}'
+          JOB_CONTEXT: '{}'
+          STEPS_CONTEXT: '{}'
+          RUNNER_CONTEXT: '{}'
+          STRATEGY_CONTEXT: '{}'
+          MATRIX_CONTEXT: '{}'
+
+      - name: Assert binary was downloaded before webhook failure
+        run: |
+          echo "Checking if binary was downloaded..."
+          if [ ! -f "./send-google-chat-webhook" ]; then
+            echo "FAIL: binary 'send-google-chat-webhook' was not found after action ran"
+            exit 1
+          fi
+          echo "PASS: binary was successfully downloaded"
+
+      - name: Assert action outcome is failure (webhook call failed as expected)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail at webhook step, but got outcome '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed at webhook step with invalid URL"

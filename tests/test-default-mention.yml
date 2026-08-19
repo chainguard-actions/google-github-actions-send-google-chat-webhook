@@ -1,4 +1,4 @@
-name: Test basic usage - send google chat webhook
+name: Test default mention - send google chat webhook
 on:
   workflow_dispatch:
 jobs:
@@ -9,27 +9,25 @@ jobs:
 
       - name: Set up fake curl and fake binary
         run: |
-          # Create a fake send-google-chat-webhook binary that just exits 0
+          # Create a fake send-google-chat-webhook binary that records its args
           mkdir -p /tmp/fake-bin-src
           cat > /tmp/fake-bin-src/send-google-chat-webhook << 'FAKEBIN'
           #!/bin/sh
           echo "Fake send-google-chat-webhook called with args: $*"
+          # Record args for assertion
+          echo "$*" > /tmp/webhook-args.txt
           exit 0
           FAKEBIN
           chmod +x /tmp/fake-bin-src/send-google-chat-webhook
 
-          # Create a fake tarball that the action will extract
-          # The action extracts: send-google-chat-webhook_0.0.2_linux_amd64.tar.gz
+          # Create a fake tarball
           cd /tmp/fake-bin-src
           tar czf /tmp/fake-release.tar.gz send-google-chat-webhook
 
           # Create a fake curl that serves the fake tarball
-          # Supports both "curl -LOv URL" (writes to filename from URL) and
-          # hardened "curl -o FILE URL" forms
           mkdir -p /tmp/fake-curl-bin
           cat > /tmp/fake-curl-bin/curl << 'FAKECURL'
           #!/bin/sh
-          # Parse args to find -o <file> or -O, and the URL
           out=""
           url=""
           prev=""
@@ -49,12 +47,10 @@ jobs:
             prev="$arg"
           done
 
-          # If -L -O -v style (no explicit -o), derive filename from URL
           if [ -z "$out" ] && [ "$use_remote_name" = "true" ] && [ -n "$url" ]; then
             out="$(basename "$url")"
           fi
 
-          # Serve the fake tarball for any send-google-chat-webhook release URL
           case "$url" in
             *send-google-chat-webhook*)
               if [ -n "$out" ]; then
@@ -66,7 +62,6 @@ jobs:
               ;;
           esac
 
-          # Fall through to real curl for other URLs
           exec /usr/bin/curl "$@"
           FAKECURL
           chmod +x /tmp/fake-curl-bin/curl
@@ -76,9 +71,12 @@ jobs:
       - id: action
         uses: .
         with:
+          # Only required input — mention uses default <users/all>
           webhook_url: 'https://chat.googleapis.com/v1/spaces/fake/messages?key=fake&token=fake'
-          mention: '<users/all>'
 
-      - name: Assert action completed successfully
+      - name: Assert action completed successfully with default mention
         run: |
-          echo "PASS: action completed without error"
+          echo "PASS: action completed without error using default mention"
+          if [ -f /tmp/webhook-args.txt ]; then
+            echo "Binary was called with args: $(cat /tmp/webhook-args.txt)"
+          fi

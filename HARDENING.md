@@ -8,7 +8,7 @@
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
 Action **google-github-actions--send-google-chat-webhook/v0.0.4** was hardened automatically. 3 finding(s) were identified and resolved across 1 iteration(s).
 
@@ -16,20 +16,21 @@ Action **google-github-actions--send-google-chat-webhook/v0.0.4** was hardened a
 
 ### script-injection (severity: high)
 
-Rule (a) violation: ${{ env.VERSION }} and ${{ env.BINARY_NAME }} are interpolated directly inside a run: shell command in the 'download binary' step. The env.* context is workflow-controllable and flows through YAML template substitution before the shell processes it, enabling script injection. Offending lines:
-  curl -LOv "https://...v${{ env.VERSION }}/send-google-chat-webhook_${{ env.VERSION }}_${CURL_OS}_${CURL_ARCH}.tar.gz"
+Sub-rule (a): The 'download binary' step in action.yml interpolates ${{ env.VERSION }} and ${{ env.BINARY_NAME }} directly inside run: shell commands. Although these values come from the step's own env: block, any ${{ ... }} expression inside a run: block undergoes YAML template substitution before the shell processes it, enabling script injection if the values contain shell metacharacters. Offending lines:
+  curl -LOv "https://.../v${{ env.VERSION }}/send-google-chat-webhook_${{ env.VERSION }}_${CURL_OS}_${CURL_ARCH}.tar.gz"
   tar xzf ${{ env.BINARY_NAME }}_${{ env.VERSION }}_${CURL_OS}_${CURL_ARCH}.tar.gz
-Fix: move VERSION and BINARY_NAME into the env: block (they already are) and reference them as $VERSION / $BINARY_NAME shell variables instead of ${{ }} expressions.
+Fix: replace ${{ env.VERSION }} with the shell env var $VERSION and ${{ env.BINARY_NAME }} with $BINARY_NAME (already set in the env: block), so no expression interpolation occurs inside the run: script.
 
 Locations:
 
 - `action.yml:55`
+- `action.yml:56`
 
 ### script-injection (severity: high)
 
-Rule (a) violation: ${{ inputs.webhook_url }} is interpolated directly inside a run: shell command in the 'send message via cli' step. inputs.webhook_url is attacker-controlled and is injected into the shell command string before the shell parses it, enabling arbitrary command injection. Offending line:
+Sub-rule (a): The 'send message via cli' step in action.yml interpolates the attacker-controlled input ${{ inputs.webhook_url }} directly inside a run: shell command. This allows an attacker who controls the webhook_url input to inject arbitrary shell commands. Offending line:
   ./send-google-chat-webhook chat workflownotification --webhook-url="${{ inputs.webhook_url }}"
-Fix: pass the value via an env: variable (e.g. WEBHOOK_URL: ${{ inputs.webhook_url }}) and reference it as "$WEBHOOK_URL" in the run: script.
+Fix: move the value to an env: variable (e.g. WEBHOOK_URL: ${{ inputs.webhook_url }}) and reference it as "$WEBHOOK_URL" inside the run: script.
 
 Locations:
 
@@ -51,7 +52,7 @@ Locations:
 
 **Notes:**
 
-Fixed three script injection findings in action.yml:
-1. 'download binary' step: Replaced ${{ env.VERSION }} and ${{ env.BINARY_NAME }} template expressions in the run: block with shell variable references ${VERSION} and ${BINARY_NAME}. These variables were already declared in the step's env: block, so no new env entries were needed.
-2. 'send message via cli' step: Moved ${{ inputs.webhook_url }} out of the run: block and into the env: block as WEBHOOK_URL: ${{ inputs.webhook_url }}, then updated the shell command to reference it as "$WEBHOOK_URL" instead of the direct expression interpolation.
+Fixed three script-injection findings in hardened/action/action.yml:
+1. 'download binary' step (lines 55-56): Replaced `${{ env.VERSION }}` with `${VERSION}` and `${{ env.BINARY_NAME }}` with `${BINARY_NAME}`. These values are already defined in the step's env: block, so plain shell variable references are safe and avoid YAML template substitution.
+2. 'send message via cli' step (lines 60/62): Moved `${{ inputs.webhook_url }}` from the run: shell command into the env: block as `WEBHOOK_URL: ${{ inputs.webhook_url }}`, and updated the shell command to reference `"$WEBHOOK_URL"` instead. This prevents attacker-controlled webhook_url input from being injected directly into the shell command string.
 
