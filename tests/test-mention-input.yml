@@ -1,4 +1,4 @@
-name: Test basic send-google-chat-webhook action
+name: Test send-google-chat-webhook with mention input
 on:
   workflow_dispatch:
 jobs:
@@ -13,8 +13,8 @@ jobs:
           set -e
           mkdir -p /tmp/fake-bin
 
-          # Create a fake send-google-chat-webhook binary
-          printf '#!/bin/sh\necho "Fake send-google-chat-webhook called with args: $@"\nexit 0\n' > /tmp/send-google-chat-webhook
+          # Create a fake send-google-chat-webhook binary that records its arguments
+          printf '#!/bin/sh\necho "Fake send-google-chat-webhook called with args: $@"\necho "$@" > /tmp/webhook-args.txt\nexit 0\n' > /tmp/send-google-chat-webhook
           chmod +x /tmp/send-google-chat-webhook
 
           # Create a fake tar.gz containing the fake binary
@@ -23,7 +23,6 @@ jobs:
           # Create a fake curl that intercepts GitHub release downloads
           # The action uses: curl -LOv <url>
           # -LOv is a combined flag where -O saves to filename from URL
-          # We need to handle combined flags like -LOv that contain O
           # Also handle -o <file> (hardened form)
           printf '%s\n' \
             '#!/bin/sh' \
@@ -62,15 +61,16 @@ jobs:
           # Add fake-bin to PATH via GITHUB_PATH so it persists into composite action steps
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-          echo "Fake curl and binary set up successfully"
+          echo "Setup complete"
 
-      - name: Run action with fake webhook URL
+      - name: Run action with mention input
         id: action
         uses: .
         with:
           webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=fake&token=fake'
+          mention: '<users/all>'
 
-      - name: Assert action completed successfully
+      - name: Assert action completed successfully with mention input
         run: |
-          echo "Action completed without error"
+          echo "Action completed with mention input"
           echo "PASS"

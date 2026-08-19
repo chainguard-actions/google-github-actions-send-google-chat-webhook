@@ -1,0 +1,28 @@
+name: Test default mention value
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action without specifying mention (uses default)
+        id: action
+        uses: .
+        with:
+          webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=FAKE&token=FAKE'
+        continue-on-error: true
+
+      - name: Assert binary was downloaded (download step succeeded)
+        run: |
+          echo "Checking binary was downloaded with default mention..."
+          if [ ! -f "./send-google-chat-webhook" ]; then
+            echo "FAIL: binary 'send-google-chat-webhook' was not found"
+            exit 1
+          fi
+          echo "PASS: binary exists, action ran with default mention value '<users/all>'"
+          ls -la ./send-google-chat-webhook

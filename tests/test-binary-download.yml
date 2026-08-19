@@ -1,0 +1,25 @@
+name: Test binary download
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with fake webhook URL (expect failure at send step)
+        id: action
+        uses: .
+        with:
+          webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=FAKE&token=FAKE'
+        continue-on-error: true
+
+      - name: Assert binary was downloaded and extracted
+        run: |
+          echo "Checking if binary was downloaded..."
+          if [ ! -f "./send-google-chat-webhook" ]; then
+            echo "FAIL: binary 'send-google-chat-webhook' was not found in working directory"
+            exit 1
+          fi
+          echo "PASS: binary exists"
+          ls -la ./send-google-chat-webhook
