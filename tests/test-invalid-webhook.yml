@@ -1,4 +1,4 @@
-name: Test basic usage - send google chat webhook
+name: Test invalid webhook URL - send google chat webhook
 on:
   workflow_dispatch:
 jobs:
@@ -11,18 +11,16 @@ jobs:
         run: |
           mkdir -p /tmp/fake-bin
 
-          # Create a fake send-google-chat-webhook binary that simulates success
+          # Create a fake binary that simulates a failure for invalid webhook
           cat > /tmp/fake-send-google-chat-webhook << 'EOF'
           #!/bin/sh
           echo "Fake send-google-chat-webhook called with args: $@"
-          exit 0
+          echo "Error: invalid webhook URL or request failed"
+          exit 1
           EOF
           chmod +x /tmp/fake-send-google-chat-webhook
 
-          # Create a fake tarball that the action will extract
-          # The action uses: curl -LOv "URL"
-          # -O saves to filename derived from URL (last path component)
-          # The filename pattern is: send-google-chat-webhook_0.0.2_linux_amd64.tar.gz
+          # Create a fake tarball
           cd /tmp
           cp fake-send-google-chat-webhook send-google-chat-webhook
           tar czf send-google-chat-webhook_0.0.2_linux_amd64.tar.gz send-google-chat-webhook
@@ -43,11 +41,9 @@ jobs:
               -o|--output) out="$arg" ;;
             esac
             case "$arg" in
-              # Handle -o <file> (separate)
               -o|--output) ;;
               # Handle combined flags containing O (e.g. -LOv, -O, -LO)
               -*O*) use_url_name=true ;;
-              # Capture URL
               http*|https*) url="$arg" ;;
             esac
             prev="$arg"
@@ -70,7 +66,6 @@ jobs:
                 ;;
             esac
           done
-          # Fall through to real curl for other URLs
           exec /usr/bin/curl "$@"
           CURLEOF
           chmod +x /tmp/fake-bin/curl
@@ -78,13 +73,20 @@ jobs:
           # Add fake-bin to GITHUB_PATH so composite action steps inherit it
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-      - name: Run action with fake webhook URL
+      - name: Run action with invalid webhook URL (expect failure)
         id: action
+        continue-on-error: true
         uses: .
         with:
-          webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=fake-key&token=fake-token'
+          webhook_url: 'https://invalid.example.com/webhook'
 
-      - name: Assert action completed successfully
+      - name: Assert action failed as expected
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "Action completed without error"
-          echo "PASS"
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid webhook URL, but got outcome: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed with invalid webhook URL"

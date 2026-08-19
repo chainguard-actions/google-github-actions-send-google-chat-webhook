@@ -1,4 +1,4 @@
-name: Test basic usage - send google chat webhook
+name: Test mention input - send google chat webhook
 on:
   workflow_dispatch:
 jobs:
@@ -11,7 +11,7 @@ jobs:
         run: |
           mkdir -p /tmp/fake-bin
 
-          # Create a fake send-google-chat-webhook binary that simulates success
+          # Create a fake binary that records its arguments and exits successfully
           cat > /tmp/fake-send-google-chat-webhook << 'EOF'
           #!/bin/sh
           echo "Fake send-google-chat-webhook called with args: $@"
@@ -19,10 +19,7 @@ jobs:
           EOF
           chmod +x /tmp/fake-send-google-chat-webhook
 
-          # Create a fake tarball that the action will extract
-          # The action uses: curl -LOv "URL"
-          # -O saves to filename derived from URL (last path component)
-          # The filename pattern is: send-google-chat-webhook_0.0.2_linux_amd64.tar.gz
+          # Create a fake tarball
           cd /tmp
           cp fake-send-google-chat-webhook send-google-chat-webhook
           tar czf send-google-chat-webhook_0.0.2_linux_amd64.tar.gz send-google-chat-webhook
@@ -43,11 +40,9 @@ jobs:
               -o|--output) out="$arg" ;;
             esac
             case "$arg" in
-              # Handle -o <file> (separate)
               -o|--output) ;;
               # Handle combined flags containing O (e.g. -LOv, -O, -LO)
               -*O*) use_url_name=true ;;
-              # Capture URL
               http*|https*) url="$arg" ;;
             esac
             prev="$arg"
@@ -70,7 +65,6 @@ jobs:
                 ;;
             esac
           done
-          # Fall through to real curl for other URLs
           exec /usr/bin/curl "$@"
           CURLEOF
           chmod +x /tmp/fake-bin/curl
@@ -78,13 +72,14 @@ jobs:
           # Add fake-bin to GITHUB_PATH so composite action steps inherit it
           echo "/tmp/fake-bin" >> "$GITHUB_PATH"
 
-      - name: Run action with fake webhook URL
+      - name: Run action with mention input
         id: action
         uses: .
         with:
           webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=fake-key&token=fake-token'
+          mention: '<users/all>'
 
-      - name: Assert action completed successfully
+      - name: Assert action completed with mention input
         run: |
-          echo "Action completed without error"
+          echo "Action completed with mention input without error"
           echo "PASS"

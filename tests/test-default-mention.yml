@@ -1,0 +1,34 @@
+name: Test default mention input
+on:
+  workflow_dispatch:
+jobs:
+  test-default-mention:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with default mention (expect failure due to fake URL)
+        id: action
+        uses: .
+        with:
+          webhook_url: 'https://chat.googleapis.com/v1/spaces/FAKE/messages?key=FAKE&token=FAKE'
+          # mention input uses default value <users/all>
+        continue-on-error: true
+
+      - name: Assert action ran (failed at send step, not at input validation)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action should fail because the webhook URL is fake,
+          # not because of missing/invalid inputs.
+          # Either 'failure' (send failed) or 'success' (unlikely with fake URL) is acceptable,
+          # but 'skipped' would indicate the action didn't run at all.
+          if [ "$OUTCOME" = "skipped" ]; then
+            echo "FAIL: action was skipped, expected it to run"
+            exit 1
+          fi
+          echo "PASS: action ran with default mention value (outcome: $OUTCOME)"

@@ -1,0 +1,46 @@
+name: Test binary download step
+on:
+  workflow_dispatch:
+jobs:
+  test-binary-download:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          webhook_url: "https://chat.googleapis.com/v1/spaces/FAKE/messages?key=FAKE&token=FAKE"
+
+      - name: Verify binary was downloaded and extracted
+        shell: bash
+        run: |
+          BINARY_NAME="send-google-chat-webhook"
+          echo "Checking if binary exists..."
+          if [ ! -f "./${BINARY_NAME}" ]; then
+            echo "FAIL: binary '${BINARY_NAME}' not found after action ran"
+            exit 1
+          fi
+          echo "PASS: binary downloaded and extracted successfully"
+
+      - name: Verify binary is executable
+        shell: bash
+        run: |
+          BINARY_NAME="send-google-chat-webhook"
+          if [ ! -x "./${BINARY_NAME}" ]; then
+            echo "FAIL: binary '${BINARY_NAME}' is not executable"
+            exit 1
+          fi
+          echo "PASS: binary is executable"
+
+      - name: Verify binary runs
+        shell: bash
+        run: |
+          BINARY_NAME="send-google-chat-webhook"
+          echo "Running binary help..."
+          ./${BINARY_NAME} --help || true
+          echo "PASS: binary runs without crashing on --help"

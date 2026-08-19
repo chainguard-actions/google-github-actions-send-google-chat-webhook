@@ -8,7 +8,7 @@
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
 Action **google-github-actions--send-google-chat-webhook/v0.0.3** was hardened automatically. 3 finding(s) were identified and resolved across 1 iteration(s).
 
@@ -16,25 +16,20 @@ Action **google-github-actions--send-google-chat-webhook/v0.0.3** was hardened a
 
 ### script-injection (severity: high)
 
-Sub-rule (a): The 'download binary' step directly interpolates ${{ env.VERSION }} and ${{ env.BINARY_NAME }} inside the run: shell block. Even though these values are set in the same step's env: block, YAML template substitution occurs before the shell executes, making any ${{ ... }} inside a run: block a script-injection risk. Offending lines:
-  curl -LOv "https://.../v${{ env.VERSION }}/send-google-chat-webhook_${{ env.VERSION }}_${CURL_OS}_${CURL_ARCH}.tar.gz"
-  tar xzf ${{ env.BINARY_NAME }}_${{ env.VERSION }}_${CURL_OS}_${CURL_ARCH}.tar.gz
-Additionally, sub-rule (b): the tar xzf line uses ${{ env.BINARY_NAME }} and ${{ env.VERSION }} without double-quoting, allowing shell metacharacter injection.
+Rule (a): Direct `${{ }}` expression interpolation inside `run:` shell commands in the 'download binary' step. `${{ env.VERSION }}` and `${{ env.BINARY_NAME }}` are interpolated directly into the curl URL and tar command strings before the shell processes them. Even though these env vars are set to literal values in the same step's `env:` block, any `${{ ... }}` inside a `run:` block is a script-injection risk because YAML template substitution happens before shell quoting. Offending lines: `curl -LOv "https://...v${{ env.VERSION }}/..."` and `tar xzf ${{ env.BINARY_NAME }}_${{ env.VERSION }}_...`. Additionally, rule (b): the `tar xzf` line is unquoted, allowing shell metacharacter injection from the expanded value.
 
 Locations:
 
-- `action.yml:55`
-- `action.yml:56`
+- `action.yml:53`
+- `action.yml:54`
 
 ### script-injection (severity: high)
 
-Sub-rule (a): The 'send message via cli' step directly interpolates the attacker-controlled input ${{ inputs.webhook_url }} into the run: shell command string:
-  ./send-google-chat-webhook chat workflownotification --webhook-url="${{ inputs.webhook_url }}"
-An attacker can supply a malicious webhook_url value containing shell metacharacters (e.g. "; malicious-command #") that will be executed by the shell. The value should instead be passed via an env: variable and referenced as a quoted shell variable (e.g. "$WEBHOOK_URL").
+Rule (a): Direct `${{ inputs.webhook_url }}` expression interpolation inside a `run:` shell command in the 'send message via cli' step. The `inputs.webhook_url` value is attacker-controlled and is interpolated directly into the shell command string: `./send-google-chat-webhook chat workflownotification --webhook-url="${{ inputs.webhook_url }}"`. This allows an attacker supplying a crafted webhook URL to inject arbitrary shell commands.
 
 Locations:
 
-- `action.yml:61`
+- `action.yml:58`
 
 ### static-inline-injection (severity: high)
 
@@ -52,7 +47,7 @@ Locations:
 
 **Notes:**
 
-Fixed all three script-injection findings in action.yml:
-1. 'download binary' step (lines 55-56): Replaced ${{ env.VERSION }} and ${{ env.BINARY_NAME }} template expressions in the run: block with plain shell variable references ${VERSION} and ${BINARY_NAME}. These values are already defined in the step's env: block, so no YAML template interpolation is needed. Also added double-quoting around the tar filename argument to prevent shell metacharacter injection.
-2. 'send message via cli' step (lines 61-62): Moved ${{ inputs.webhook_url }} out of the run: shell block into the step's env: block as WEBHOOK_URL, and updated the shell command to reference it as "$WEBHOOK_URL" instead of the inline template expression.
+Fixed all three script-injection findings in hardened/action/action.yml:
+1. 'download binary' step (lines 53-54): Replaced `${{ env.VERSION }}` and `${{ env.BINARY_NAME }}` with plain shell variable references `${VERSION}` and `${BINARY_NAME}`. Also added double-quotes around the tar argument to prevent shell metacharacter injection.
+2. 'send message via cli' step (lines 58/62): Moved `${{ inputs.webhook_url }}` out of the run: block into the env: block as `WEBHOOK_URL: ${{ inputs.webhook_url }}`, and updated the run: block to reference it as `"$WEBHOOK_URL"` instead of the inline expression.
 
