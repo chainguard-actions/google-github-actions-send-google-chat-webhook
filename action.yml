@@ -15,13 +15,14 @@
 name: 'send-google-chat-webhhook'
 description: "send message to your google chat workspace"
 inputs:
-  webhook_url:
+  webhook_url: 
     description: "chat space webhook url"
     required: true
   mention:
     description: "mention people or not, format <users/user_id>"
     default: '<users/all>'
     required: false
+
 runs:
   using: 'composite'
   steps:
@@ -71,11 +72,11 @@ runs:
         esac
 
         curl -LOv "https://github.com/google-github-actions/send-google-chat-webhook/releases/download/v${VERSION}/send-google-chat-webhook_${VERSION}_${CURL_OS}_${CURL_ARCH}.tar.gz"
-        tar xzf ${BINARY_NAME}_${VERSION}_${CURL_OS}_${CURL_ARCH}.tar.gz
+        tar xzf "${BINARY_NAME}_${VERSION}_${CURL_OS}_${CURL_ARCH}.tar.gz"
     - name: "send message via cli"
       shell: 'bash'
       run: |
-        ./send-google-chat-webhook chat workflownotification --webhook-url="$WEBHOOK_URL"
+        ./send-google-chat-webhook chat workflownotification --webhook-url="${WEBHOOK_URL}"
       env:
         WEBHOOK_URL: ${{ inputs.webhook_url }}
         GITHUB_CONTEXT: ${{ toJson(github) }}
